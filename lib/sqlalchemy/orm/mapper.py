@@ -428,10 +428,11 @@ class Mapper(_InspectionAttr):
            unless ``version_id_generator`` specifies a new generation
            algorithm.
 
-        :param version_id_generator: A callable which defines the algorithm
-            used to generate new version ids. Defaults to an integer
-            generator. Can be replaced with one that generates timestamps,
-            uuids, etc. e.g.::
+        :param version_id_generator: Define how new version ids should
+            be generated.  Defaults to ``None``, which indicates that
+            a simple integer counting scheme be employed.   It can
+            be replaced with one that generates other kinds of values,
+            such as timestamps, uuids, etc. e.g.::
 
                 import uuid
 
@@ -447,6 +448,22 @@ class Mapper(_InspectionAttr):
 
             The callable receives the current version identifier as its
             single argument.
+
+            Alternatively, the value ``False`` can be given, which indicates
+            that server-side version id generation is to be employed; this
+            typically indicates that a "default" or "server_default" as well
+            as "onupdate" or "server_onupdate" is specified on the mapped
+            :class:`.Column` (see :ref:`metadata_defaults`).  The mapper will
+            make use of ``RETURNING`` in order to retrieve the new version id
+            within the ``INSERT`` statement, or if not supported by the target
+            dialect, will emit a second ``SELECT`` for the row.  It is
+            strongly recommended that this option be used with a database
+            that at least supports ``RETURNING``, as the fetching of version
+            identifiers will add significant statement overhead to flush
+            operations.
+
+            .. versionadded:: 0.9.0 ``version_id_generator`` supports server-side
+               version number generation.
 
         :param with_polymorphic: A tuple in the form ``(<classes>,
             <selectable>)`` indicating the default style of "polymorphic"
@@ -481,9 +498,19 @@ class Mapper(_InspectionAttr):
             self.order_by = order_by
 
         self.always_refresh = always_refresh
-        self.version_id_col = version_id_col
-        self.version_id_generator = version_id_generator or \
-                                        (lambda x: (x or 0) + 1)
+
+        if isinstance(version_id_col, MapperProperty):
+            self.version_id_prop = version_id_col
+            self.version_id_col = None
+        else:
+            self.version_id_col = version_id_col
+        if version_id_generator is False:
+            self.version_id_generator = False
+        elif version_id_generator is None:
+            self.version_id_generator = lambda x: (x or 0) + 1
+        else:
+            self.version_id_generator = version_id_generator
+
         self.concrete = concrete
         self.single = False
         self.inherits = inherits
@@ -1404,6 +1431,13 @@ class Mapper(_InspectionAttr):
 
 
     _validate_polymorphic_identity = None
+
+    @_memoized_configured_property
+    def _version_id_prop(self):
+        if self.version_id_col is not None:
+            return self._columntoproperty[self.version_id_col]
+        else:
+            return None
 
     @_memoized_configured_property
     def _acceptable_polymorphic_identities(self):

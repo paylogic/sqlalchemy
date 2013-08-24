@@ -249,8 +249,8 @@ def _collect_insert_commands(base_mapper, uowtransaction, table,
         has_all_defaults = True
         for col in mapper._cols_by_table[table]:
             if col is mapper.version_id_col:
-                val = mapper.version_id_generator(None)
-                if val is not None:
+                if mapper.version_id_generator is not False:
+                    val = mapper.version_id_generator(None)
                     params[col.key] = val
             else:
                 # pull straight from the dict for
@@ -322,9 +322,8 @@ def _collect_update_commands(base_mapper, uowtransaction,
                     params[col.key] = history.added[0]
                     hasdata = True
                 else:
-                    val = mapper.version_id_generator(
-                                                params[col._label])
-                    if val is not None:
+                    if mapper.version_id_generator is not False:
+                        val = mapper.version_id_generator(params[col._label])
                         params[col.key] = val
 
                         # HACK: check for history, in case the
@@ -723,25 +722,25 @@ def _finalize_insert_update_commands(base_mapper, uowtransaction,
             if readonly:
                 state._expire_attributes(state.dict, readonly)
 
-        # if eager_defaults option is enabled,
-        # refresh whatever has been expired.
+        # if eager_defaults option is enabled, load
+        # all expired cols.  Else if we have a version_id_col, make sure
+        # it isn't expired.
+        toload_now = []
+
         if base_mapper.eager_defaults and state.unloaded:
+            toload_now.extend(state.unloaded)
+        elif mapper.version_id_col is not None and \
+            mapper.version_id_generator is False:
+            prop = mapper._columntoproperty[mapper.version_id_col]
+            if prop.key in state.unloaded:
+                toload_now.extend([prop.key])
+
+        if toload_now:
             state.key = base_mapper._identity_key_from_state(state)
             loading.load_on_ident(
                 uowtransaction.session.query(base_mapper),
                 state.key, refresh_state=state,
-                only_load_props=state.unloaded)
-
-        # else if version id value isn't present, TODO try to
-        # simplify the code here vs. eager_defaults above
-        elif mapper.version_id_col is not None:
-            prop = mapper._columntoproperty[mapper.version_id_col]
-            if prop.key in state.unloaded:
-                state.key = base_mapper._identity_key_from_state(state)
-                loading.load_on_ident(
-                    uowtransaction.session.query(base_mapper),
-                    state.key, refresh_state=state,
-                    only_load_props=[prop.key])
+                only_load_props=toload_now)
 
         # call after_XXX extensions
         if not has_identity:

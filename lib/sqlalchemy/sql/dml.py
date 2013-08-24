@@ -326,7 +326,7 @@ class ValuesBase(UpdateBase):
 
         1. It is compatible with any backend.  Backends that don't support
            RETURNING will skip the usage of the feature, rather than raising
-           an exception.  The return value of :meth:`.ResultProxy.server_returned_defaults`
+           an exception.  The return value of :attr:`.ResultProxy.returned_defaults`
            will be ``None``
 
         2. It is compatible with the existing logic to fetch auto-generated
