@@ -1110,6 +1110,9 @@ of these events.
 
 .. autofunction:: reconstructor
 
+
+.. _mapper_version_counter:
+
 Configuring a Version Counter
 =============================
 
@@ -1130,13 +1133,11 @@ transaction).
 
     When detecting concurrent updates within transactions, it is typically the
     case that the database's transaction isolation level is below the level of
-    :term:`repeatable read`; otherwise, the transaction will not be
-    exposed to a concurrent update for a particular row and will see the same value.
-    If the isolation level is at repeatable read or higher, the database itself
-    guards against a particular transaction seeing a new value for a row that it
-    has already fetched, and the SQLAlchemy version_id feature will typically not
-    be useful for in-transaction conflict detection (though it still can be used
-    for cross-transaction staleness detection).
+    :term:`repeatable read`; otherwise, the transaction will not be exposed
+    to a new row value created by a concurrent update which conflicts with
+    the locally updated value.  In this case, the SQLAlchemy versioning
+    feature will typically not be useful for in-transaction conflict detection,
+    though it still can be used for cross-transaction staleness detection.
 
     The database that enforces repeatable reads will typically either have locked the
     target row against a concurrent update, or is employing some form
@@ -1186,13 +1187,15 @@ this is the condition that SQLAlchemy tests, that exactly one row matched our
 UPDATE (or DELETE) statement.  If zero rows match, that indicates our version
 of the data is stale, and a :class:`.StaleDataError` is raised.
 
+.. _custom_version_counter:
+
 Custom Version Counters / Types
 -------------------------------
 
 Other kinds of values or counters can be used for versioning.  Common types include
 dates and GUIDs.   When using an alternate type or counter scheme, SQLAlchemy
 provides a hook for this scheme using the ``version_id_generator`` argument,
-which accepts a simple callable.  This callable is passed the value of the current
+which accepts a version generation callable.  This callable is passed the value of the current
 known version, and is expected to return the subsequent version.
 
 For example, if we wanted to track the versioning of our ``User`` class
@@ -1213,13 +1216,20 @@ support a native GUID type, but we illustrate here using a simple string)::
             'version_id_generator':lambda version: uuid.uuid4().hex
         }
 
-Our ``User`` class above will call upon ``uuid.uuid4()`` each time a
-``User`` object is subject to an INSERT or an UPDATE.   Note here that we
-can disregard the incoming value of ``version``, as the ``uuid4()`` function
+The persistence engine will call upon ``uuid.uuid4()`` each time a
+``User`` object is subject to an INSERT or an UPDATE.  In this case, our
+version generation function can disregard the incoming value of ``version``,
+as the ``uuid4()`` function
 generates identifiers without any prerequisite value.  If we were using
 a sequential versioning scheme such as numeric or a special character system,
 we could make use of the given ``version`` in order to help determine the
 subsequent value.
+
+.. seealso::
+
+    :ref:`custom_guid_type`
+
+.. _server_side_version_counter:
 
 Server Side Version Counters
 -----------------------------
@@ -1230,15 +1240,17 @@ some means of generating new identifiers when a row is subject to an INSERT
 as well as with an UPDATE.   For the UPDATE case, typically an update trigger
 is needed, unless the database in question supports some other native
 version identifier.  The Postgresql database in particular supports a system
-column called ``xmin`` which accomplishes this.  If we wanted our ``User``
-class to use Postgresql's ``xmin`` column, we could do this::
+column called `xmin <http://www.postgresql.org/docs/9.1/static/ddl-system-columns.html>`_
+which provides UPDATE versioning.  We can make use
+of the Postgresql ``xmin`` column to version our ``User``
+class as follows::
 
     class User(Base):
         __tablename__ = 'user'
 
         id = Column(Integer, primary_key=True)
         name = Column(String(50), nullable=False)
-        xmin = Column("xmin", Integer)
+        xmin = Column("xmin", Integer, system=True)
 
         __mapper_args__ = {
             'version_id_col': xmin,
@@ -1248,24 +1260,24 @@ class to use Postgresql's ``xmin`` column, we could do this::
 With the above mapping, the ORM will rely upon the ``xmin`` column for
 automatically providing the new value of the version id counter.
 
-.. sidebar:: creating tables that refer to system columns
+.. topic:: creating tables that refer to system columns
 
     In the above scenario, as ``xmin`` is a system column provided by Postgresql,
-    we can have any ``CREATE TABLE`` statement omit ``xmin`` using this recipe::
+    we use the ``system=True`` argument to mark it as a system-provided
+    column, omitted from the ``CREATE TABLE`` statement.
 
-        from sqlalchemy.ext.compiler import compiles
-        from sqlalchemy.schema import CreateColumn
 
-        @compiles(CreateColumn)
-        def skip_xmin(element, compiler, **kw):
-            if element.element.name == 'xmin':
-                return None
-            else:
-                return compiler.visit_create_column(element, **kw)
+The ORM typically does not actively fetch the values of database-generated
+values when it emits an INSERT or UPDATE, instead leaving these columns as
+"expired" and to be fetched when they are next accessed.  However, when a
+server side version column is used, the ORM needs to actively fetch the newly
+generated value.  This is so that the version counter is set up *before*
+any concurrent transaction may update it again.   This fetching is also
+best done simultaneously within the INSERT or UPDATE statement using RETURNING,
+otherwise if emitting a SELECT statement afterwards, there is still a potential
+race condition where the version counter may change before it can be fetched.
 
-The INSERT and UPDATE statements generated by the ORM when server side
-version counters are used are most efficient when the database supports
-RETURNING.   Above, an INSERT statement for our ``User`` class will look
+When the target database supports RETURNING, an INSERT statement for our ``User`` class will look
 like this::
 
     INSERT INTO "user" (name) VALUES (%(name)s) RETURNING "user".id, "user".xmin
@@ -1274,7 +1286,8 @@ like this::
 Where above, the ORM can acquire any newly generated primary key values along
 with server-generated version identifiers in one statement.   When the backend
 does not support RETURNING, an additional SELECT must be emitted for **every**
-INSERT, which is much less efficient::
+INSERT, which is much less efficient, and also introduces the possibility of
+missed version counters::
 
     INSERT INTO "user" (name) VALUES (%(name)s) RETURNING "user".id, "user".version_id
     {'name': 'ed'}
@@ -1283,14 +1296,14 @@ INSERT, which is much less efficient::
     "user".id = :param_1
     {"param_1": 1}
 
-Therefore it is recommended that server side version counters only be used
-when absolutely necessary, or at least on backends that support RETURNING
-(e.g. Postgresql, Oracle, SQL Server, Firebird).
+It is *strongly recommended* that server side version counters only be used
+when absolutely necessary and only on backends that support RETURNING,
+e.g. Postgresql, Oracle, SQL Server (though SQL Server has
+`major caveats <http://blogs.msdn.com/b/sqlprogrammability/archive/2008/07/11/update-with-output-clause-triggers-and-sqlmoreresults.aspx>`_ when triggers are used), Firebird.
 
 .. versionadded:: 0.9.0
 
     Support for server side version identifier tracking.
-
 
 
 Class Mapping API

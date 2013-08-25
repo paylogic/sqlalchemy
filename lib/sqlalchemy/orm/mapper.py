@@ -391,9 +391,9 @@ class Mapper(_InspectionAttr):
           thus persisting the value to the ``discriminator`` column
           in the database.
 
-          See also:
+          .. seealso::
 
-          :ref:`inheritance_toplevel`
+            :ref:`inheritance_toplevel`
 
         :param polymorphic_identity: Specifies the value which
           identifies this particular class as returned by the
@@ -419,51 +419,44 @@ class Mapper(_InspectionAttr):
            can be overridden here.
 
         :param version_id_col: A :class:`.Column`
-           that will be used to keep a running version id of mapped entities
-           in the database.  This is used during save operations to ensure that
-           no other thread or process has updated the instance during the
-           lifetime of the entity, else a
+           that will be used to keep a running version id of rows
+           in the table.  This is used to detect concurrent updates or
+           the presence of stale data in a flush.  The methodology is to
+           detect if an UPDATE statement does not match the last known
+           version id, a
            :class:`~sqlalchemy.orm.exc.StaleDataError` exception is
-           thrown.  By default the column must be of :class:`.Integer` type,
-           unless ``version_id_generator`` specifies a new generation
-           algorithm.
+           thrown.
+           By default, the column must be of :class:`.Integer` type,
+           unless ``version_id_generator`` specifies an alternative version
+           generator.
+
+           .. seealso::
+
+              :ref:`mapper_version_counter` - discussion of version counting
+              and rationale.
 
         :param version_id_generator: Define how new version ids should
-            be generated.  Defaults to ``None``, which indicates that
-            a simple integer counting scheme be employed.   It can
-            be replaced with one that generates other kinds of values,
-            such as timestamps, uuids, etc. e.g.::
+          be generated.  Defaults to ``None``, which indicates that
+          a simple integer counting scheme be employed.  To provide a custom
+          versioning scheme, provide a callable function of the form::
 
-                import uuid
+              def generate_version(version):
+                  return next_version
 
-                class MyClass(Base):
-                    __tablename__ = 'mytable'
-                    id = Column(Integer, primary_key=True)
-                    version_uuid = Column(String(32))
+          Alternatively, server-side versioning functions such as triggers
+          may be used as well, by specifying the value ``False``.
+          Please see :ref:`server_side_version_counter` for a discussion
+          of important points when using this option.
 
-                    __mapper_args__ = {
-                        'version_id_col':version_uuid,
-                        'version_id_generator':lambda version:uuid.uuid4().hex
-                    }
+          .. versionadded:: 0.9.0 ``version_id_generator`` supports server-side
+             version number generation.
 
-            The callable receives the current version identifier as its
-            single argument.
+          .. seealso::
 
-            Alternatively, the value ``False`` can be given, which indicates
-            that server-side version id generation is to be employed; this
-            typically indicates that a "default" or "server_default" as well
-            as "onupdate" or "server_onupdate" is specified on the mapped
-            :class:`.Column` (see :ref:`metadata_defaults`).  The mapper will
-            make use of ``RETURNING`` in order to retrieve the new version id
-            within the ``INSERT`` statement, or if not supported by the target
-            dialect, will emit a second ``SELECT`` for the row.  It is
-            strongly recommended that this option be used with a database
-            that at least supports ``RETURNING``, as the fetching of version
-            identifiers will add significant statement overhead to flush
-            operations.
+             :ref:`custom_version_counter`
 
-            .. versionadded:: 0.9.0 ``version_id_generator`` supports server-side
-               version number generation.
+             :ref:`server_side_version_counter`
+
 
         :param with_polymorphic: A tuple in the form ``(<classes>,
             <selectable>)`` indicating the default style of "polymorphic"
@@ -475,13 +468,9 @@ class Mapper(_InspectionAttr):
             indicates a selectable that will be used to query for multiple
             classes.
 
-            See also:
+            .. seealso::
 
-            :ref:`concrete_inheritance` - typically uses ``with_polymorphic``
-            to specify a UNION statement to select from.
-
-            :ref:`with_polymorphic` - usage example of the related
-            :meth:`.Query.with_polymorphic` method
+              :ref:`with_polymorphic` - discussion of polymorphic querying techniques.
 
         """
 
