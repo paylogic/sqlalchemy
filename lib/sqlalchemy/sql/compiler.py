@@ -24,7 +24,7 @@ To generate user-defined SQL strings, see
 
 import re
 from . import schema, sqltypes, operators, functions, \
-        util as sql_util, visitors, elements, selectable
+        util as sql_util, visitors, elements, selectable, base
 from .. import util, exc
 import decimal
 import itertools
@@ -2723,6 +2723,10 @@ class IdentifierPreparer(object):
         return self.quote(schema, force)
 
     def quote(self, ident, force):
+
+        if isinstance(ident, base._quoted_name):
+            force = ident.quote
+
         if force is None:
             if ident in self._strings:
                 return self._strings[ident]

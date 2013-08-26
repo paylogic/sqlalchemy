@@ -34,7 +34,7 @@ from .. import exc, util, event, inspection
 from .base import SchemaEventTarget
 from . import visitors
 from . import type_api
-from .base import _bind_or_error, ColumnCollection
+from .base import _bind_or_error, ColumnCollection, quoted_name, _quoted_name
 from .elements import ClauseElement, ColumnClause, _truncated_label, \
                         _as_truncated, TextClause, _literal_as_text,\
                         ColumnElement, _find_columns
@@ -329,6 +329,14 @@ class Table(SchemaItem, TableClause):
                 #metadata._remove_table(name, schema)
                 raise
 
+    @property
+    def quote(self):
+        return self.name.quote
+
+    @property
+    def quote_schema(self):
+        return self.schema.quote
+
     def __init__(self, *args, **kw):
         """Constructor for :class:`~.schema.Table`.
 
@@ -341,15 +349,15 @@ class Table(SchemaItem, TableClause):
         # calling the superclass constructor.
 
     def _init(self, name, metadata, *args, **kwargs):
-        super(Table, self).__init__(name)
+        super(Table, self).__init__(quoted_name(name, kwargs.pop('quote', None)))
         self.metadata = metadata
+
         self.schema = kwargs.pop('schema', None)
         if self.schema is None:
             self.schema = metadata.schema
-            self.quote_schema = kwargs.pop(
-                'quote_schema', metadata.quote_schema)
         else:
-            self.quote_schema = kwargs.pop('quote_schema', None)
+            quote_schema = kwargs.pop('quote_schema', None)
+            self.schema = quoted_name(self.schema, quote_schema)
 
         self.indexes = set()
         self.constraints = set()
@@ -370,7 +378,7 @@ class Table(SchemaItem, TableClause):
         include_columns = kwargs.pop('include_columns', None)
 
         self.implicit_returning = kwargs.pop('implicit_returning', True)
-        self.quote = kwargs.pop('quote', None)
+
         if 'info' in kwargs:
             self.info = kwargs.pop('info')
         if 'listeners' in kwargs:

@@ -61,6 +61,41 @@ class QuoteTest(fixtures.TestBase, AssertsCompiledSQL):
 
         assert 'MixedCase' in t2.c
 
+    @testing.provide_metadata
+    def test_has_table_case_sensitive(self):
+        if testing.db.dialect.requires_name_normalize:
+            testing.db.execute("CREATE TABLE TAB1 (id INTEGER)")
+            testing.db.execute('CREATE TABLE "tab2" (id INTEGER)')
+            testing.db.execute('CREATE TABLE "TAB3" (id INTEGER)')
+            testing.db.execute('CREATE TABLE "TAB4" (id INTEGER)')
+        else:
+            testing.db.execute("CREATE TABLE tab1 (id INTEGER)")
+            testing.db.execute('CREATE TABLE "tab2" (id INTEGER)')
+            testing.db.execute('CREATE TABLE "TAB3" (id INTEGER)')
+            testing.db.execute('CREATE TABLE "TAB4" (id INTEGER)')
+
+        t1 = Table('tab1', self.metadata,
+                        Column('id', Integer, primary_key=True),
+                        #quote=False
+                        )
+        t2 = Table('tab2', self.metadata,
+                        Column('id', Integer, primary_key=True),
+                         quote=True
+                         )
+        t3 = Table('TAB3', self.metadata,
+                        Column('id', Integer, primary_key=True),
+                        #quote=False
+                        )
+        t4 = Table('TAB4', self.metadata,
+                        Column('id', Integer, primary_key=True),
+                        quote=True)
+
+        assert testing.db.has_table(t1.name)
+        assert testing.db.has_table(t2.name)
+        assert testing.db.has_table(t3.name)
+        assert testing.db.has_table(t4.name)
+
+
     def test_basic(self):
         table1.insert().execute(
             {'lowercase': 1, 'UPPERCASE': 2, 'MixedCase': 3, 'a123': 4},
