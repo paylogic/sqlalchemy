@@ -716,6 +716,12 @@ class QuotedIdentTest(fixtures.TestBase):
         q1 = quoted_name(None, False)
         eq_(q1, None)
 
+    def test_apply_map(self):
+        q1 = _anonymous_label(quoted_name("x%s", True))
+        q2 = q1.apply_map(('bar'))
+        eq_(q2, "xbar")
+        eq_(q2.quote, True)
+
     def _assert_quoted(self, value, quote):
         assert isinstance(value, quoted_name)
         eq_(value.quote, quote)

@@ -2173,7 +2173,7 @@ class _anonymous_label(_truncated_label):
                     )
 
     def apply_map(self, map_):
-        return self % map_
+        return quoted_name(self % map_, self.quote)
 
 
 def _as_truncated(value):
