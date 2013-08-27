@@ -900,7 +900,6 @@ class SchemaType(SchemaEventTarget):
         schema = kw.pop('schema', self.schema)
         metadata = kw.pop('metadata', self.metadata)
         return impltype(name=self.name,
-                    quote=self.quote,
                     schema=schema,
                     metadata=metadata,
                     inherit_schema=self.inherit_schema,
@@ -1012,10 +1011,7 @@ class Enum(String, SchemaType):
                 owning :class:`.Table`.  If this behavior is desired,
                 set the ``inherit_schema`` flag to ``True``.
 
-        :param quote: Force quoting to be on or off on the type's name. If
-           left as the default of `None`, the usual schema-level "case
-           sensitive"/"reserved name" rules are used to determine if this
-           type's name should be quoted.
+        :param quote: Set explicit quoting preferences for the type's name.
 
         :param inherit_schema: When ``True``, the "schema" from the owning
            :class:`.Table` will be copied to the "schema" attribute of this

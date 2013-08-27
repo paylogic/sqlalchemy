@@ -82,6 +82,17 @@ class SchemaItem(SchemaEventTarget, visitors.Visitable):
     def __repr__(self):
         return util.generic_repr(self)
 
+    @property
+    @util.deprecated('0.9', 'Use ``<obj>.name.quote``')
+    def quote(self):
+        """Return the value of the ``quote`` flag passed
+        to this schema object, for those schema items which
+        have a ``name`` field.
+
+        """
+
+        return self.name.quote
+
     @util.memoized_property
     def info(self):
         """Info dictionary associated with the object, allowing user-defined
@@ -113,25 +124,29 @@ class Table(SchemaItem, TableClause):
     a second time will return the *same* :class:`.Table` object - in this way
     the :class:`.Table` constructor acts as a registry function.
 
-    See also:
+    .. seealso::
 
-    :ref:`metadata_describing` - Introduction to database metadata
+        :ref:`metadata_describing` - Introduction to database metadata
 
     Constructor arguments are as follows:
 
     :param name: The name of this table as represented in the database.
 
-        This property, along with the *schema*, indicates the *singleton
-        identity* of this table in relation to its parent :class:`.MetaData`.
+        The table name, along with the value of the ``schema`` parameter,
+        forms a key which uniquely identifies this :class:`.Table` within
+        the owning :class:`.MetaData` collection.
         Additional calls to :class:`.Table` with the same name, metadata,
         and schema name will return the same :class:`.Table` object.
 
         Names which contain no upper case characters
         will be treated as case insensitive names, and will not be quoted
-        unless they are a reserved word.  Names with any number of upper
-        case characters will be quoted and sent exactly.  Note that this
-        behavior applies even for databases which standardize upper
-        case names as case insensitive such as Oracle.
+        unless they are a reserved word or contain special characters.
+        A name with any number of upper case characters is considered
+        to be case sensitive, and will be sent as quoted.
+
+        To enable unconditional quoting for the table name, specify the flag
+        ``quote=True`` to the constructor, or use the :class:`.quoted_name`
+        construct to specify the name.
 
     :param metadata: a :class:`.MetaData` object which will contain this
         table.  The metadata is used as a point of association of this table
@@ -262,9 +277,17 @@ class Table(SchemaItem, TableClause):
 
     :param quote_schema: same as 'quote' but applies to the schema identifier.
 
-    :param schema: The *schema name* for this table, which is required if
+    :param schema: The schema name for this table, which is required if
         the table resides in a schema other than the default selected schema
-        for the engine's database connection. Defaults to ``None``.
+        for the engine's database connection.  Defaults to ``None``.
+
+        The quoting rules for the schema name are the same as those for the
+        ``name`` parameter, in that quoting is applied for reserved words or
+        case-sensitive names; to enable unconditional quoting for the
+        schema name, specify the flag
+        ``quote_schema=True`` to the constructor, or use the :class:`.quoted_name`
+        construct to specify the name.
+
 
     :param useexisting: Deprecated.  Use extend_existing.
 
@@ -328,13 +351,14 @@ class Table(SchemaItem, TableClause):
                 #metadata._remove_table(name, schema)
                 raise
 
-#    @property
-#    def quote(self):
-#        return self.name.quote
 
-#    @property
-#    def quote_schema(self):
-#        return self.schema.quote
+    @property
+    @util.deprecated('0.9', 'Use ``table.schema.quote``')
+    def quote_schema(self):
+        """Return the value of the ``quote_schema`` flag passed
+        to this :class:`.Table`."""
+
+        return self.schema.quote
 
     def __init__(self, *args, **kw):
         """Constructor for :class:`~.schema.Table`.
@@ -604,7 +628,9 @@ class Table(SchemaItem, TableClause):
         :class:`.Table`, using the given :class:`.Connectable`
         for connectivity.
 
-        See also :meth:`.MetaData.create_all`.
+        .. seealso::
+
+            :meth:`.MetaData.create_all`.
 
         """
 
@@ -619,7 +645,9 @@ class Table(SchemaItem, TableClause):
         :class:`.Table`, using the given :class:`.Connectable`
         for connectivity.
 
-        See also :meth:`.MetaData.drop_all`.
+        .. seealso::
+
+            :meth:`.MetaData.drop_all`.
 
         """
         if bind is None:
@@ -1806,7 +1834,11 @@ class Sequence(DefaultGenerator):
     be emitted as well.   For platforms that don't support sequences,
     the :class:`.Sequence` construct is ignored.
 
-    See also: :class:`.CreateSequence` :class:`.DropSequence`
+    .. seealso::
+
+        :class:`.CreateSequence`
+
+        :class:`.DropSequence`
 
     """
 
@@ -1843,6 +1875,8 @@ class Sequence(DefaultGenerator):
          forces quoting of the schema name on or off.  When left at its
          default of ``None``, normal quoting rules based on casing and reserved
          words take place.
+        :param quote_schema: set the quoting preferences for the ``schema``
+         name.
         :param metadata: optional :class:`.MetaData` object which will be
          associated with this :class:`.Sequence`.  A :class:`.Sequence`
          that is associated with a :class:`.MetaData` gains access to the
@@ -2610,7 +2644,9 @@ class Index(ColumnCollectionMixin, SchemaItem):
         :class:`.Index`, using the given :class:`.Connectable`
         for connectivity.
 
-        See also :meth:`.MetaData.create_all`.
+        .. seealso::
+
+            :meth:`.MetaData.create_all`.
 
         """
         if bind is None:
@@ -2623,7 +2659,9 @@ class Index(ColumnCollectionMixin, SchemaItem):
         :class:`.Index`, using the given :class:`.Connectable`
         for connectivity.
 
-        See also :meth:`.MetaData.drop_all`.
+        .. seealso::
+
+            :meth:`.MetaData.drop_all`.
 
         """
         if bind is None:
@@ -2665,12 +2703,9 @@ class MetaData(SchemaItem):
     MetaData is a thread-safe object after tables have been explicitly defined
     or loaded via reflection.
 
-    See also:
+    .. seealso::
 
-    :ref:`metadata_describing` - Introduction to database metadata
-
-    .. index::
-      single: thread safety; MetaData
+        :ref:`metadata_describing` - Introduction to database metadata
 
     """
 
