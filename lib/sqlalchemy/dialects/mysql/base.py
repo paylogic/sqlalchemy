@@ -1566,8 +1566,7 @@ class MySQLDDLCompiler(compiler.DDLCompiler):
             visit_primary_key_constraint(constraint)
         if "mysql_using" in constraint.kwargs:
             using = constraint.kwargs['mysql_using']
-            text += " USING %s" % (
-                self.preparer.quote(using))
+            text += " USING %s" % (self.preparer.quote(using))
         return text
 
     def visit_drop_index(self, drop):

@@ -2093,8 +2093,44 @@ class ReleaseSavepointClause(_IdentifiedClause):
 
 
 class quoted_name(util.text_type):
-    """A unicode subclass used to identify names
-    that are unconditionally quoted (or not quoted)
+    """Represent a SQL identifier combined with quoting preferences.
+
+    :class:`.quoted_name` is a Python unicode/str subclass which
+    represents a particular identifier name at the same
+    time as a "quote" flag.  This "quote" flag, when set to
+    True or False, overrides all automatic quoting behavior
+    for this identifier in order to either unconditionally quote
+    or to not quote the name.
+
+    A :class:`.quoted_name` object with ``quote=True`` is also
+    prevented from being modified in the case of a so-called
+    "name normalize" option.  Certain database backends, such as
+    Oracle, Firebird, and DB2 "normalize" case-insensitive names
+    as uppercase.  The SQLAlchemy dialects for these backends
+    convert from SQLAlchemy's lower-case-means-insensitive convention
+    to the upper-case-means-insensitive conventions of those backends.
+    The ``quote=True`` flag here will prevent this conversion from occurring
+    to support an identifier that's quoted as all lower case against
+    such a backend.
+
+    The :class:`.quoted_name` object is normally created automatically
+    when specifying the name for key schema constructs such as :class:`.Table`,
+    :class:`.Column`, and others.   The class can also be passed explicitly
+    as the name to any function that receives a name which can be quoted.
+    Such as to use the :meth:`.Engine.has_table` method with an unconditionally
+    quoted name::
+
+        from sqlaclchemy import create_engine
+        from sqlalchemy.sql.elements import quoted_name
+
+        engine = create_engine("oracle+cx_oracle://some_dsn")
+        engine.has_table(quoted_name("some_table", True))
+
+    The above logic will run the "has table" logic against the Oracle backend,
+    passing the name exactly as ``"some_table"`` without converting to
+    upper case.
+
+    .. versionadded:: 0.9.0
 
     """
 

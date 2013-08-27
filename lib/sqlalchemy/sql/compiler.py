@@ -559,7 +559,7 @@ class SQLCompiler(Compiled):
                 tablename = self._truncated_identifier("alias", tablename)
 
             return schema_prefix + \
-                    self.preparer.quote(tablename, table.quote) + \
+                    self.preparer.quote(tablename) + \
                     "." + name
 
     def escape_literal_column(self, text):
@@ -2183,11 +2183,11 @@ class DDLCompiler(Compiled):
         return self.sql_compiler.post_process_text(ddl.statement % context)
 
     def visit_create_schema(self, create):
-        schema = self.preparer.format_schema(create.element, create.quote)
+        schema = self.preparer.format_schema(create.element)
         return "CREATE SCHEMA " + schema
 
     def visit_drop_schema(self, drop):
-        schema = self.preparer.format_schema(drop.element, drop.quote)
+        schema = self.preparer.format_schema(drop.element)
         text = "DROP SCHEMA " + schema
         if drop.cascade:
             text += " CASCADE"
@@ -2702,14 +2702,21 @@ class IdentifierPreparer(object):
                 or (lc_value != value))
 
     def quote_schema(self, schema, force=None):
-        """Quote a schema.
+        """Conditionally quote a schema.
 
-        Subclasses should override this to provide database-dependent
-        quoting behavior.
+        Subclasses can override this to provide database-dependent
+        quoting behavior for schema names.
+
+        the 'force' flag should be considered deprecated.
+
         """
         return self.quote(schema, force)
 
     def quote(self, ident, force=None):
+        """Conditionally quote an identifier.
+
+        the 'force' flag should be considered deprecated.
+        """
 
         if isinstance(ident, elements.quoted_name):
             force = ident.quote
@@ -2730,10 +2737,8 @@ class IdentifierPreparer(object):
 
     def format_sequence(self, sequence, use_schema=True):
         name = self.quote(sequence.name)
-        if not self.omit_schema and use_schema and \
-            sequence.schema is not None:
-            name = self.quote_schema(sequence.schema) + \
-                        "." + name
+        if not self.omit_schema and use_schema and sequence.schema is not None:
+            name = self.quote_schema(sequence.schema) + "." + name
         return name
 
     def format_label(self, label, name=None):
@@ -2756,8 +2761,7 @@ class IdentifierPreparer(object):
         result = self.quote(name)
         if not self.omit_schema and use_schema \
             and getattr(table, "schema", None):
-            result = self.quote_schema(table.schema) + \
-                                "." + result
+            result = self.quote_schema(table.schema) + "." + result
         return result
 
     def format_schema(self, name, quote=None):
@@ -2775,8 +2779,7 @@ class IdentifierPreparer(object):
             if use_table:
                 return self.format_table(
                             column.table, use_schema=False,
-                            name=table_name) + "." + \
-                            self.quote(name)
+                            name=table_name) + "." + self.quote(name)
             else:
                 return self.quote(name)
         else:

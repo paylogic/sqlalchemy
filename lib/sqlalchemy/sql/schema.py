@@ -450,9 +450,8 @@ class Table(SchemaItem, TableClause):
                     self._columns.remove(c)
 
         for key in ('quote', 'quote_schema'):
-            raise exc.ArgumentError("not supported")
-            #if key in kwargs:
-            #    setattr(self, key, kwargs.pop(key))
+            raise exc.ArgumentError(
+                    "Can't redefine 'quote' or 'quote_schema' arguments")
 
         if 'info' in kwargs:
             self.info = kwargs.pop('info')
