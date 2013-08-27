@@ -292,6 +292,8 @@ against ``b_value`` directly.
 
 :ticket:`2751`
 
+.. _change_2812:
+
 Schema identifiers now carry along their own quoting information
 ---------------------------------------------------------------------
 
