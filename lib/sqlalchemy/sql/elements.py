@@ -2096,11 +2096,13 @@ class quoted_name(util.text_type):
     """Represent a SQL identifier combined with quoting preferences.
 
     :class:`.quoted_name` is a Python unicode/str subclass which
-    represents a particular identifier name at the same
-    time as a "quote" flag.  This "quote" flag, when set to
-    True or False, overrides all automatic quoting behavior
+    represents a particular identifier name along with a
+    ``quote`` flag.  This ``quote`` flag, when set to
+    ``True`` or ``False``, overrides automatic quoting behavior
     for this identifier in order to either unconditionally quote
-    or to not quote the name.
+    or to not quote the name.  If left at its default of ``None``,
+    quoting behavior is applied to the identifier on a per-backend basis
+    based on an examination of the token itself.
 
     A :class:`.quoted_name` object with ``quote=True`` is also
     prevented from being modified in the case of a so-called
