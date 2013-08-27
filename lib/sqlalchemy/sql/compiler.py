@@ -280,10 +280,6 @@ class _CompileLabel(visitors.Visitable):
     def type(self):
         return self.element.type
 
-    @property
-    def quote(self):
-        return self.element.quote
-
 
 class SQLCompiler(Compiled):
     """Default implementation of Compiled.
@@ -548,16 +544,14 @@ class SQLCompiler(Compiled):
         if is_literal:
             name = self.escape_literal_column(name)
         else:
-            name = self.preparer.quote(name, column.quote)
+            name = self.preparer.quote(name)
 
         table = column.table
         if table is None or not include_table or not table.named_with_column:
             return name
         else:
             if table.schema:
-                schema_prefix = self.preparer.quote_schema(
-                                    table.schema,
-                                    table.quote_schema) + '.'
+                schema_prefix = self.preparer.quote_schema(table.schema) + '.'
             else:
                 schema_prefix = ''
             tablename = table.name
@@ -1574,12 +1568,10 @@ class SQLCompiler(Compiled):
                         fromhints=None, **kwargs):
         if asfrom or ashint:
             if getattr(table, "schema", None):
-                ret = self.preparer.quote_schema(table.schema,
-                                table.quote_schema) + \
-                                "." + self.preparer.quote(table.name,
-                                                table.quote)
+                ret = self.preparer.quote_schema(table.schema) + \
+                                "." + self.preparer.quote(table.name)
             else:
-                ret = self.preparer.quote(table.name, table.quote)
+                ret = self.preparer.quote(table.name)
             if fromhints and table in fromhints:
                 ret = self.format_from_hint_text(ret, table,
                                     fromhints[table], iscrud)
@@ -1796,8 +1788,7 @@ class SQLCompiler(Compiled):
         if name is None:
             name = col.key
         bindparam = elements.BindParameter(name, value,
-                            type_=col.type, required=required,
-                            quote=col.quote)
+                            type_=col.type, required=required)
         bindparam._is_crud = True
         return bindparam._compiler_dispatch(self)
 
@@ -2325,8 +2316,7 @@ class DDLCompiler(Compiled):
     def _prepared_index_name(self, index, include_schema=False):
         if include_schema and index.table is not None and index.table.schema:
             schema = index.table.schema
-            schema_name = self.preparer.quote_schema(schema,
-                                index.table.quote_schema)
+            schema_name = self.preparer.quote_schema(schema)
         else:
             schema_name = None
 
@@ -2340,9 +2330,7 @@ class DDLCompiler(Compiled):
         else:
             self.dialect.validate_identifier(ident)
 
-        index_name = self.preparer.quote(
-                                    ident,
-                                    index.quote)
+        index_name = self.preparer.quote(ident)
 
         if schema_name:
             index_name = schema_name + "." + index_name
@@ -2424,7 +2412,7 @@ class DDLCompiler(Compiled):
             text += "CONSTRAINT %s " % \
                     self.preparer.format_constraint(constraint)
         text += "PRIMARY KEY "
-        text += "(%s)" % ', '.join(self.preparer.quote(c.name, c.quote)
+        text += "(%s)" % ', '.join(self.preparer.quote(c.name)
                                        for c in constraint)
         text += self.define_constraint_deferrability(constraint)
         return text
@@ -2437,11 +2425,11 @@ class DDLCompiler(Compiled):
                         preparer.format_constraint(constraint)
         remote_table = list(constraint._elements.values())[0].column.table
         text += "FOREIGN KEY(%s) REFERENCES %s (%s)" % (
-            ', '.join(preparer.quote(f.parent.name, f.parent.quote)
+            ', '.join(preparer.quote(f.parent.name)
                       for f in constraint._elements.values()),
             self.define_constraint_remote_table(
                             constraint, remote_table, preparer),
-            ', '.join(preparer.quote(f.column.name, f.column.quote)
+            ', '.join(preparer.quote(f.column.name)
                       for f in constraint._elements.values())
         )
         text += self.define_constraint_match(constraint)
@@ -2460,7 +2448,7 @@ class DDLCompiler(Compiled):
             text += "CONSTRAINT %s " % \
                     self.preparer.format_constraint(constraint)
         text += "UNIQUE (%s)" % (
-                    ', '.join(self.preparer.quote(c.name, c.quote)
+                    ', '.join(self.preparer.quote(c.name)
                             for c in constraint))
         text += self.define_constraint_deferrability(constraint)
         return text
@@ -2714,7 +2702,7 @@ class IdentifierPreparer(object):
                 or not self.legal_characters.match(util.text_type(value))
                 or (lc_value != value))
 
-    def quote_schema(self, schema, force):
+    def quote_schema(self, schema, force=None):
         """Quote a schema.
 
         Subclasses should override this to provide database-dependent
@@ -2722,9 +2710,9 @@ class IdentifierPreparer(object):
         """
         return self.quote(schema, force)
 
-    def quote(self, ident, force):
+    def quote(self, ident, force=None):
 
-        if isinstance(ident, base._quoted_name):
+        if isinstance(ident, elements.quoted_name):
             force = ident.quote
 
         if force is None:
@@ -2742,38 +2730,38 @@ class IdentifierPreparer(object):
             return ident
 
     def format_sequence(self, sequence, use_schema=True):
-        name = self.quote(sequence.name, sequence.quote)
+        name = self.quote(sequence.name)
         if not self.omit_schema and use_schema and \
             sequence.schema is not None:
-            name = self.quote_schema(sequence.schema, sequence.quote) + \
+            name = self.quote_schema(sequence.schema) + \
                         "." + name
         return name
 
     def format_label(self, label, name=None):
-        return self.quote(name or label.name, label.quote)
+        return self.quote(name or label.name)
 
     def format_alias(self, alias, name=None):
-        return self.quote(name or alias.name, alias.quote)
+        return self.quote(name or alias.name)
 
     def format_savepoint(self, savepoint, name=None):
-        return self.quote(name or savepoint.ident, savepoint.quote)
+        return self.quote(name or savepoint.ident)
 
     def format_constraint(self, constraint):
-        return self.quote(constraint.name, constraint.quote)
+        return self.quote(constraint.name)
 
     def format_table(self, table, use_schema=True, name=None):
         """Prepare a quoted table and schema name."""
 
         if name is None:
             name = table.name
-        result = self.quote(name, table.quote)
+        result = self.quote(name)
         if not self.omit_schema and use_schema \
             and getattr(table, "schema", None):
-            result = self.quote_schema(table.schema, table.quote_schema) + \
+            result = self.quote_schema(table.schema) + \
                                 "." + result
         return result
 
-    def format_schema(self, name, quote):
+    def format_schema(self, name, quote=None):
         """Prepare a quoted schema name."""
 
         return self.quote(name, quote)
@@ -2789,9 +2777,9 @@ class IdentifierPreparer(object):
                 return self.format_table(
                             column.table, use_schema=False,
                             name=table_name) + "." + \
-                            self.quote(name, column.quote)
+                            self.quote(name)
             else:
-                return self.quote(name, column.quote)
+                return self.quote(name)
         else:
             # literal textual elements get stuck into ColumnClause a lot,
             # which shouldn't get quoted
@@ -2811,7 +2799,7 @@ class IdentifierPreparer(object):
 
         if not self.omit_schema and use_schema and \
                 getattr(table, 'schema', None):
-            return (self.quote_schema(table.schema, table.quote_schema),
+            return (self.quote_schema(table.schema),
                     self.format_table(table, use_schema=False))
         else:
             return (self.format_table(table, use_schema=False), )

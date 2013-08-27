@@ -530,7 +530,6 @@ class ColumnElement(ClauseElement, operators.ColumnOperators):
     __visit_name__ = 'column'
     primary_key = False
     foreign_keys = []
-    quote = None
     _label = None
     _key_label = None
     _alt_names = ()
@@ -693,7 +692,6 @@ class BindParameter(ColumnElement):
     """
 
     __visit_name__ = 'bindparam'
-    quote = None
 
     _is_crud = False
 
@@ -1838,7 +1836,6 @@ class Label(ColumnElement):
         self.key = self._label = self._key_label = self.name
         self._element = element
         self._type = type_
-        self.quote = element.quote
         self._proxies = [element]
 
     @util.memoized_property
@@ -2078,7 +2075,6 @@ class _IdentifiedClause(Executable, ClauseElement):
     __visit_name__ = 'identified'
     _execution_options = \
         Executable._execution_options.union({'autocommit': False})
-    quote = None
 
     def __init__(self, ident):
         self.ident = ident
@@ -2096,9 +2092,57 @@ class ReleaseSavepointClause(_IdentifiedClause):
     __visit_name__ = 'release_savepoint'
 
 
-class _truncated_label(util.text_type):
+class quoted_name(util.text_type):
+    """A unicode subclass used to identify names
+    that are unconditionally quoted (or not quoted)
+
+    """
+
+    def __new__(cls, value, quote):
+        if value is None:
+            return None
+        elif isinstance(value, cls) and (
+                quote is None or value.quote == quote
+            ):
+            return value
+        case_sens = value.lower() != value
+        self = super(quoted_name, cls).__new__(cls, value)
+        self.quote = quote
+        self._fix = quote or case_sens
+        return self
+
+    def __add__(self, other):
+        return quoted_name(
+                    util.text_type.__add__(util.text_type(self),
+                            util.text_type(other)),
+                    self.quote
+                )
+
+    def __radd__(self, other):
+        return quoted_name(
+                    util.text_type.__add__(util.text_type(other), self),
+                    self.quote
+                )
+
+    def lower(self):
+        if self.quote:
+            return self
+        else:
+            return util.text_type(self).lower()
+
+    def upper(self):
+        if self.quote:
+            return self
+        else:
+            return util.text_type(self).upper()
+
+class _truncated_label(quoted_name):
     """A unicode subclass used to identify symbolic "
     "names that may require truncation."""
+
+    def __new__(cls, value):
+        quote = getattr(value, "quote", None)
+        return super(_truncated_label, cls).__new__(cls, value, quote)
 
     def apply_map(self, map_):
         return self
@@ -2116,13 +2160,17 @@ class _anonymous_label(_truncated_label):
 
     def __add__(self, other):
         return _anonymous_label(
-                    util.text_type(self) +
-                    util.text_type(other))
+                    quoted_name(
+                        util.text_type.__add__(self, util.text_type(other)),
+                        self.quote)
+                )
 
     def __radd__(self, other):
         return _anonymous_label(
-                    util.text_type(other) +
-                    util.text_type(self))
+                    quoted_name(
+                        util.text_type.__add__(util.text_type(other), self),
+                        self.quote)
+                    )
 
     def apply_map(self, map_):
         return self % map_

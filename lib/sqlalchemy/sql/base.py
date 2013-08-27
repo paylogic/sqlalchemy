@@ -29,31 +29,7 @@ class Immutable(object):
     def _clone(self):
         return self
 
-def quoted_name(str_, quote):
-    case_sens = str_.lower() != str_
 
-    str_ = _quoted_name(str_)
-    str_.quote = quote
-    str_._fix = quote or case_sens
-    return str_
-
-class _quoted_name(util.text_type):
-    """A unicode subclass used to identify names
-    that are unconditionally quoted (or not quoted)
-
-    """
-
-    def lower(self):
-        if self.quote: #fix:
-            return self
-        else:
-            return util.text_type(self).lower()
-
-    def upper(self):
-        if self.quote: #_fix:
-            return self
-        else:
-            return util.text_type(self).upper()
 
 def _from_objects(*elements):
     return itertools.chain(*[element._from_objects for element in elements])

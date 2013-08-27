@@ -34,10 +34,10 @@ from .. import exc, util, event, inspection
 from .base import SchemaEventTarget
 from . import visitors
 from . import type_api
-from .base import _bind_or_error, ColumnCollection, quoted_name, _quoted_name
+from .base import _bind_or_error, ColumnCollection
 from .elements import ClauseElement, ColumnClause, _truncated_label, \
                         _as_truncated, TextClause, _literal_as_text,\
-                        ColumnElement, _find_columns
+                        ColumnElement, _find_columns, quoted_name
 from .selectable import TableClause
 import collections
 import sqlalchemy
@@ -67,7 +67,6 @@ class SchemaItem(SchemaEventTarget, visitors.Visitable):
     """Base class for items that define a database schema."""
 
     __visit_name__ = 'schema_item'
-    quote = None
 
     def _init_items(self, *args):
         """Initialize the list of child items for this SchemaItem."""
@@ -329,13 +328,13 @@ class Table(SchemaItem, TableClause):
                 #metadata._remove_table(name, schema)
                 raise
 
-    @property
-    def quote(self):
-        return self.name.quote
+#    @property
+#    def quote(self):
+#        return self.name.quote
 
-    @property
-    def quote_schema(self):
-        return self.schema.quote
+#    @property
+#    def quote_schema(self):
+#        return self.schema.quote
 
     def __init__(self, *args, **kw):
         """Constructor for :class:`~.schema.Table`.
@@ -451,8 +450,9 @@ class Table(SchemaItem, TableClause):
                     self._columns.remove(c)
 
         for key in ('quote', 'quote_schema'):
-            if key in kwargs:
-                setattr(self, key, kwargs.pop(key))
+            raise exc.ArgumentError("not supported")
+            #if key in kwargs:
+            #    setattr(self, key, kwargs.pop(key))
 
         if 'info' in kwargs:
             self.info = kwargs.pop('info')
@@ -933,6 +933,12 @@ class Column(SchemaItem, ColumnClause):
                         "May not pass type_ positionally and as a keyword.")
                 type_ = args.pop(0)
 
+        if name is not None:
+            name = quoted_name(name, kwargs.pop('quote', None))
+        elif "quote" in kwargs:
+            raise exc.ArgumentError("Explicit 'name' is required when "
+                            "sending 'quote' argument")
+
         super(Column, self).__init__(name, type_)
         self.key = kwargs.pop('key', name)
         self.primary_key = kwargs.pop('primary_key', False)
@@ -943,7 +949,6 @@ class Column(SchemaItem, ColumnClause):
         self.index = kwargs.pop('index', None)
         self.unique = kwargs.pop('unique', None)
         self.system = kwargs.pop('system', False)
-        self.quote = kwargs.pop('quote', None)
         self.doc = kwargs.pop('doc', None)
         self.onupdate = kwargs.pop('onupdate', None)
         self.autoincrement = kwargs.pop('autoincrement', True)
@@ -995,6 +1000,10 @@ class Column(SchemaItem, ColumnClause):
         if kwargs:
             raise exc.ArgumentError(
                 "Unknown arguments passed to Column: " + repr(list(kwargs)))
+
+#    @property
+#    def quote(self):
+#        return getattr(self.name, "quote", None)
 
     def __str__(self):
         if self.name is None:
@@ -1131,7 +1140,7 @@ class Column(SchemaItem, ColumnClause):
                 nullable=self.nullable,
                 unique=self.unique,
                 system=self.system,
-                quote=self.quote,
+                #quote=self.quote,
                 index=self.index,
                 autoincrement=self.autoincrement,
                 default=self.default,
@@ -1169,7 +1178,6 @@ class Column(SchemaItem, ColumnClause):
                 key=key if key else name if name else self.key,
                 primary_key=self.primary_key,
                 nullable=self.nullable,
-                quote=self.quote,
                 _proxies=[self], *fk)
         except TypeError:
             util.raise_from_cause(
@@ -1863,17 +1871,14 @@ class Sequence(DefaultGenerator):
 
         """
         super(Sequence, self).__init__(for_update=for_update)
-        self.name = name
+        self.name = quoted_name(name, quote)
         self.start = start
         self.increment = increment
         self.optional = optional
-        self.quote = quote
         if metadata is not None and schema is None and metadata.schema:
             self.schema = schema = metadata.schema
-            self.quote_schema = metadata.quote_schema
         else:
-            self.schema = schema
-            self.quote_schema = quote_schema
+            self.schema = quoted_name(schema, quote_schema)
         self.metadata = metadata
         self._key = _get_table_key(name, schema)
         if metadata:
@@ -2703,8 +2708,7 @@ class MetaData(SchemaItem):
 
         """
         self.tables = util.immutabledict()
-        self.schema = schema
-        self.quote_schema = quote_schema
+        self.schema = quoted_name(schema, quote_schema)
         self._schemas = set()
         self._sequences = {}
         self._fk_memos = collections.defaultdict(list)
@@ -2750,7 +2754,6 @@ class MetaData(SchemaItem):
     def __getstate__(self):
         return {'tables': self.tables,
                 'schema': self.schema,
-                'quote_schema': self.quote_schema,
                 'schemas': self._schemas,
                 'sequences': self._sequences,
                 'fk_memos': self._fk_memos}
@@ -2758,7 +2761,6 @@ class MetaData(SchemaItem):
     def __setstate__(self, state):
         self.tables = state['tables']
         self.schema = state['schema']
-        self.quote_schema = state['quote_schema']
         self._bind = None
         self._sequences = state['sequences']
         self._schemas = state['schemas']
