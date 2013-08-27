@@ -4,6 +4,7 @@ from sqlalchemy.sql import compiler
 from sqlalchemy.testing import fixtures, AssertsCompiledSQL, eq_
 from sqlalchemy import testing
 from sqlalchemy.sql.elements import quoted_name, _truncated_label, _anonymous_label
+from sqlalchemy.testing.util import picklers
 
 class QuoteTest(fixtures.TestBase, AssertsCompiledSQL):
     __dialect__ = 'default'
@@ -730,6 +731,21 @@ class QuotedIdentTest(fixtures.TestBase):
         q2 = q1.apply_map(('bar'))
         eq_(q2, "xbar")
         eq_(q2.quote, True)
+
+    def test_pickle_quote(self):
+        q1 = quoted_name("x", True)
+        for loads, dumps in picklers():
+            q2 = loads(dumps(q1))
+            eq_(str(q1), str(q2))
+            eq_(q1.quote, q2.quote)
+
+    def test_pickle_anon_label(self):
+        q1 = _anonymous_label(quoted_name("x", True))
+        for loads, dumps in picklers():
+            q2 = loads(dumps(q1))
+            assert isinstance(q2, _anonymous_label)
+            eq_(str(q1), str(q2))
+            eq_(q1.quote, q2.quote)
 
     def _assert_quoted(self, value, quote):
         assert isinstance(value, quoted_name)

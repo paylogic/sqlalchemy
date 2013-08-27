@@ -2149,6 +2149,9 @@ class quoted_name(util.text_type):
         self._fix = quote or case_sens
         return self
 
+    def __reduce__(self):
+        return quoted_name, (util.text_type(self), self.quote)
+
     def __add__(self, other):
         return quoted_name(
                     util.text_type.__add__(util.text_type(self),
@@ -2174,13 +2177,19 @@ class quoted_name(util.text_type):
         else:
             return util.text_type(self).upper()
 
+    def __repr__(self):
+        return "'%s'" % self
+
 class _truncated_label(quoted_name):
     """A unicode subclass used to identify symbolic "
     "names that may require truncation."""
 
-    def __new__(cls, value):
-        quote = getattr(value, "quote", None)
+    def __new__(cls, value, quote=None):
+        quote = getattr(value, "quote", quote)
         return super(_truncated_label, cls).__new__(cls, value, quote)
+
+    def __reduce__(self):
+        return self.__class__, (util.text_type(self), self.quote)
 
     def apply_map(self, map_):
         return self

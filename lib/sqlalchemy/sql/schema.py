@@ -474,7 +474,8 @@ class Table(SchemaItem, TableClause):
                     self._columns.remove(c)
 
         for key in ('quote', 'quote_schema'):
-            raise exc.ArgumentError(
+            if key in kwargs:
+                raise exc.ArgumentError(
                     "Can't redefine 'quote' or 'quote_schema' arguments")
 
         if 'info' in kwargs:
