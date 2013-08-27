@@ -2569,7 +2569,7 @@ class Index(ColumnCollectionMixin, SchemaItem):
         # objects are present
         ColumnCollectionMixin.__init__(self, *columns)
 
-        self.name = name
+        self.name = quoted_name(name, kw.pop("quote", None))
         self.unique = kw.pop('unique', False)
         self.kwargs = kw
 

@@ -776,6 +776,7 @@ class BindParameter(ColumnElement):
         if value is NO_ARG:
             value = None
 
+        key = quoted_name(key, quote)
 
         if unique:
             self.key = _anonymous_label('%%(%d %s)s' % (id(self), key
@@ -798,7 +799,6 @@ class BindParameter(ColumnElement):
         self.callable = callable_
         self.isoutparam = isoutparam
         self.required = required
-        self.quote = quote
         if type_ is None:
             if _compared_to_type is not None:
                 self.type = \

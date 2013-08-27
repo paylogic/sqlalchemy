@@ -12,6 +12,7 @@ import datetime as dt
 import codecs
 
 from .type_api import TypeEngine, TypeDecorator, to_instance
+from .elements import quoted_name
 from .default_comparator import _DefaultColumnComparator
 from .. import exc, util, processors
 from .base import _bind_or_error, SchemaEventTarget
@@ -840,8 +841,11 @@ class SchemaType(SchemaEventTarget):
     """
 
     def __init__(self, **kw):
-        self.name = kw.pop('name', None)
-        self.quote = kw.pop('quote', None)
+        name = kw.pop('name', None)
+        if name is not None:
+            self.name = quoted_name(name, kw.pop('quote', None))
+        else:
+            self.name = None
         self.schema = kw.pop('schema', None)
         self.metadata = kw.pop('metadata', None)
         self.inherit_schema = kw.pop('inherit_schema', False)
@@ -1071,7 +1075,6 @@ class Enum(String, SchemaType):
         metadata = kw.pop('metadata', self.metadata)
         if issubclass(impltype, Enum):
             return impltype(name=self.name,
-                        quote=self.quote,
                         schema=schema,
                         metadata=metadata,
                         convert_unicode=self.convert_unicode,

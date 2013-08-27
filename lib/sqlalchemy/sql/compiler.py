@@ -947,7 +947,7 @@ class SQLCompiler(Compiled):
 
         self.binds[bindparam.key] = self.binds[name] = bindparam
 
-        return self.bindparam_string(name, quote=bindparam.quote, **kwargs)
+        return self.bindparam_string(name, **kwargs)
 
     def render_literal_bindparam(self, bindparam, **kw):
         value = bindparam.value
@@ -1017,8 +1017,7 @@ class SQLCompiler(Compiled):
         self.anon_map[derived] = anonymous_counter + 1
         return derived + "_" + str(anonymous_counter)
 
-    def bindparam_string(self, name, quote=None,
-                        positional_names=None, **kw):
+    def bindparam_string(self, name, positional_names=None, **kw):
         if self.positional:
             if positional_names is not None:
                 positional_names.append(name)
