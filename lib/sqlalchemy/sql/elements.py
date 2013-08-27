@@ -776,7 +776,8 @@ class BindParameter(ColumnElement):
         if value is NO_ARG:
             value = None
 
-        key = quoted_name(key, quote)
+        if quote is not None:
+            key = quoted_name(key, quote)
 
         if unique:
             self.key = _anonymous_label('%%(%d %s)s' % (id(self), key
@@ -2024,6 +2025,12 @@ class ColumnClause(Immutable, ColumnElement):
             else:
                 label = t.name + "_" + name
 
+            # propagate name quoting rules for labels.
+            if getattr(name, "quote", None) is not None:
+                label = quoted_name(label, name.quote)
+            elif getattr(t.name, "quote", None) is not None:
+                label = quoted_name(label, t.name.quote)
+
             # ensure the label name doesn't conflict with that
             # of an existing column
             if label in t.c:
@@ -2143,34 +2150,21 @@ class quoted_name(util.text_type):
                 quote is None or value.quote == quote
             ):
             return value
-        case_sens = value.lower() != value
         self = super(quoted_name, cls).__new__(cls, value)
         self.quote = quote
-        self._fix = quote or case_sens
         return self
 
     def __reduce__(self):
         return quoted_name, (util.text_type(self), self.quote)
 
-    def __add__(self, other):
-        return quoted_name(
-                    util.text_type.__add__(util.text_type(self),
-                            util.text_type(other)),
-                    self.quote
-                )
-
-    def __radd__(self, other):
-        return quoted_name(
-                    util.text_type.__add__(util.text_type(other), self),
-                    self.quote
-                )
-
+    @util.memoized_instancemethod
     def lower(self):
         if self.quote:
             return self
         else:
             return util.text_type(self).lower()
 
+    @util.memoized_instancemethod
     def upper(self):
         if self.quote:
             return self
@@ -2220,7 +2214,12 @@ class _anonymous_label(_truncated_label):
                     )
 
     def apply_map(self, map_):
-        return quoted_name(self % map_, self.quote)
+        if self.quote is not None:
+            # preserve quoting only if necessary
+            return quoted_name(self % map_, self.quote)
+        else:
+            # else skip the constructor call
+            return self % map_
 
 
 def _as_truncated(value):

@@ -363,7 +363,7 @@ class _OracleRowid(oracle.ROWID):
 
 class OracleCompiler_cx_oracle(OracleCompiler):
     def bindparam_string(self, name, **kw):
-        quote = name.quote
+        quote = getattr(name, 'quote', None)
         if quote is True or quote is not False and \
             self.preparer._bindparam_requires_quotes(name):
             quoted_name = '"%s"' % name

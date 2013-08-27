@@ -2718,8 +2718,7 @@ class IdentifierPreparer(object):
         the 'force' flag should be considered deprecated.
         """
 
-        if isinstance(ident, elements.quoted_name):
-            force = ident.quote
+        force = getattr(ident, "quote", None)
 
         if force is None:
             if ident in self._strings:

@@ -671,27 +671,27 @@ class PreparerTest(fixtures.TestBase):
 class QuotedIdentTest(fixtures.TestBase):
     def test_concat_quotetrue(self):
         q1 = quoted_name("x", True)
-        self._assert_quoted(q1 + "y", True)
+        self._assert_not_quoted("y" + q1)
 
     def test_concat_quotefalse(self):
         q1 = quoted_name("x", False)
-        self._assert_quoted(q1 + "y", False)
+        self._assert_not_quoted("y" + q1)
 
     def test_concat_quotenone(self):
         q1 = quoted_name("x", None)
-        self._assert_quoted(q1 + "y", None)
+        self._assert_not_quoted("y" + q1)
 
     def test_rconcat_quotetrue(self):
         q1 = quoted_name("x", True)
-        self._assert_quoted("y" + q1, True)
+        self._assert_not_quoted("y" + q1)
 
     def test_rconcat_quotefalse(self):
         q1 = quoted_name("x", False)
-        self._assert_quoted("y" + q1, False)
+        self._assert_not_quoted("y" + q1)
 
     def test_rconcat_quotenone(self):
         q1 = quoted_name("x", None)
-        self._assert_quoted("y" + q1, None)
+        self._assert_not_quoted("y" + q1)
 
     def test_concat_anon(self):
         q1 = _anonymous_label(quoted_name("x", True))
@@ -726,11 +726,17 @@ class QuotedIdentTest(fixtures.TestBase):
         q1 = quoted_name(None, False)
         eq_(q1, None)
 
-    def test_apply_map(self):
+    def test_apply_map_quoted(self):
         q1 = _anonymous_label(quoted_name("x%s", True))
         q2 = q1.apply_map(('bar'))
         eq_(q2, "xbar")
         eq_(q2.quote, True)
+
+    def test_apply_map_plain(self):
+        q1 = _anonymous_label(quoted_name("x%s", None))
+        q2 = q1.apply_map(('bar'))
+        eq_(q2, "xbar")
+        self._assert_not_quoted(q2)
 
     def test_pickle_quote(self):
         q1 = quoted_name("x", True)
@@ -751,4 +757,6 @@ class QuotedIdentTest(fixtures.TestBase):
         assert isinstance(value, quoted_name)
         eq_(value.quote, quote)
 
+    def _assert_not_quoted(self, value):
+        assert not isinstance(value, quoted_name)
 
